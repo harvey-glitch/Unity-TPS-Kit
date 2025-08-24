@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: fe393ace9b354375a9cb14cdbbc28be4
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 127325
+  packageName: Particle Pack
+  packageVersion: 
+  assetPath: Assets/Standard-Assets-Characters-master/Assets/_Standard Assets/Prototyping/Package
+    Assets/TextMesh Pro/Resources/Shaders/TMP_SDF-Mobile.shader
+  uploadId: 0
