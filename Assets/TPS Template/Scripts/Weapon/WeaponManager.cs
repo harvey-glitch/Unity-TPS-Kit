@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using Unity.Cinemachine;
 
 public class WeaponManager : MonoBehaviour
 {
@@ -15,6 +16,9 @@ public class WeaponManager : MonoBehaviour
     [SerializeField] bool addBulletTracer;
     [SerializeField] TrailRenderer trailPrefab;
 
+    [Header("Cinemachine Camera")]
+    [SerializeField] CinemachineImpulseSource impulseSource;
+
     // read only variable for external access
     public bool hasActiveWeapon =>
         activeWeapon != null && activeWeapon.gameObject.activeInHierarchy;
@@ -22,7 +26,7 @@ public class WeaponManager : MonoBehaviour
     // references and components
     Camera _camera;
     WeaponRigController _rigController;
-    
+
     // tracks the next time the weapon can be fire
     float _nextFireTime;
     bool _currentlyAiming;
@@ -41,6 +45,8 @@ public class WeaponManager : MonoBehaviour
         #endregion
 
         _rigController ??= GetComponent<WeaponRigController>();
+        impulseSource ??= GetComponent<CinemachineImpulseSource>();
+
         _camera = Camera.main;
     }
 
@@ -67,11 +73,16 @@ public class WeaponManager : MonoBehaviour
             Ray ray = _camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
             Vector3 rayPoint = Vector3.zero;
 
+            impulseSource.GenerateImpulse(ray.direction);
+
             // store the point where the ray hit
             if (Physics.Raycast(ray, out RaycastHit hit, activeWeapon.MaxRange))
             {
                 rayPoint = hit.point;
-                activeWeapon.InflictDamage(hit.transform.gameObject);
+
+                HealthBase health = hit.transform.GetComponent<HealthBase>();
+                if (health != null)
+                    health.OnDamageTaken(activeWeapon.Damage);
             }
             else
             {
@@ -95,6 +106,7 @@ public class WeaponManager : MonoBehaviour
             _nextFireTime = Time.time + (1f / activeWeapon.Firerate);
         }
     }
+
 
     IEnumerator SpawnTrail(TrailRenderer trail, Vector3 endPosition, RaycastHit rayHit)
     {
@@ -182,7 +194,7 @@ public class WeaponManager : MonoBehaviour
 
     void HandlePoseBlending()
     {
-        bool isAiming = InputHandler.Instance.GetAttackInput();
+        bool isAiming = InputHandler.Instance.GetAttackInput() && activeWeapon != null;
 
         if (isAiming != _currentlyAiming)
         {

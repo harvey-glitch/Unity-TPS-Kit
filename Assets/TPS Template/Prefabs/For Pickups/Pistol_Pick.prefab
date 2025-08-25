@@ -285,7 +285,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a65eed6749c767343bb664caa4004c3f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  weapon_prefab: {fileID: 8063169565506897784, guid: 0ead4105c493e60448dbf2934a104911, type: 3}
+  weaponName: 
+  weaponPrefab: {fileID: 0}
 --- !u!65 &3619492424047024523
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -305,8 +306,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.5, y: 0.5, z: 0.5}
-  m_Center: {x: 0, y: 0, z: 0.1}
+  m_Size: {x: 0.1, y: 0.20203315, z: 0.31296587}
+  m_Center: {x: -8.074045e-17, y: -0.05681838, z: 0.16403937}
 --- !u!1 &7352797271339320887
 GameObject:
   m_ObjectHideFlags: 0

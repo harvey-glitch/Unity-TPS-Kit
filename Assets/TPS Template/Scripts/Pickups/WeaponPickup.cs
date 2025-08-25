@@ -2,20 +2,14 @@ using UnityEngine;
 
 public class WeaponPickup : MonoBehaviour, IPickup
 {
-    [SerializeField] Weapon weapon_prefab;
+    [SerializeField] string weaponName;
+    [SerializeField] Weapon weaponPrefab;
 
-    public void OnTriggerEnter(Collider other)
-    {
-        if (other.transform.CompareTag("Player"))
-        {
-            OnPicked();
-        }
-    }
-
+    public string Name => weaponName;
     public void OnPicked()
     {
-        Weapon newWeapon = Instantiate(weapon_prefab);
+        Weapon newWeapon = Instantiate(weaponPrefab);
         WeaponManager.instance.EquipWeapon(newWeapon);
-        Destroy(this.gameObject);
+        Destroy(gameObject);
     }
 }

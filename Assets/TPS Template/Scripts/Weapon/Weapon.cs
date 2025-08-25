@@ -31,6 +31,7 @@ public class Weapon : MonoBehaviour
     public Transform LeftHandGrip => leftHandGrip;
     public float Firerate => firerate;
     public float MaxRange => maxRange;
+    public int Damage => damage;
     public GameObject ImpactEffect => impactEffect;
     public Transform Muzzle => muzzle;
     public WeaponType Type => weaponType;

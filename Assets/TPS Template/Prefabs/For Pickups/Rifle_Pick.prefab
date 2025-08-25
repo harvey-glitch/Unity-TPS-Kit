@@ -513,7 +513,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a65eed6749c767343bb664caa4004c3f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  weapon_prefab: {fileID: 8711058242678216526, guid: 69d496c93ef1c0f4b8040492c32bab11, type: 3}
+  weaponName: 
+  weaponPrefab: {fileID: 0}
 --- !u!65 &2656258523443074243
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -529,12 +530,12 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.5, y: 0.5, z: 1}
-  m_Center: {x: 0, y: 0, z: 0.4}
+  m_Size: {x: 0.1, y: 0.29405463, z: 0.90195274}
+  m_Center: {x: -3.130261e-16, y: -0.102972716, z: 0.44756174}
 --- !u!1001 &2447419921322730274
 PrefabInstance:
   m_ObjectHideFlags: 0

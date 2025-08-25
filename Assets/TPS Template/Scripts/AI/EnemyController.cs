@@ -83,7 +83,9 @@ public class EnemyController : MonoBehaviour
 
     void Animate()
     {
-        _animator.SetFloat("Velocity", _agent.velocity.magnitude);
+        float speed = Agent.velocity.magnitude; // current movement speed
+        float maxSpeed = Agent.speed;           // max agent speed
+        Animator.SetFloat("Velocity", speed / maxSpeed);
     }
 
     public void OnEventEnd()

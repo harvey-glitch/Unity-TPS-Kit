@@ -1,11 +1,11 @@
 using UnityEngine;
 
-public abstract class HealthBase: MonoBehaviour
+public abstract class HealthBase : MonoBehaviour
 {
     [Header("Health")]
-    [SerializeField] int maxHealth;
+    [SerializeField] int maxHealth = 100;
 
-    int _currentHealth;
+    protected int _currentHealth;
 
     void Start()
     {
