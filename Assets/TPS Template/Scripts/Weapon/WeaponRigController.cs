@@ -3,14 +3,10 @@ using UnityEngine.Animations.Rigging;
 
 public class WeaponRigController : MonoBehaviour
 {
-    [Header("Rigs")]
+    [Header("Rigs Setup")]
     [SerializeField] Rig handRig;
     [SerializeField] Rig basePoseRig;
-    [SerializeField] Rig aimPoseRig;
     [SerializeField] Rig upperbodyRig;
-
-    [Header("Rig Blending")]
-    [SerializeField] float rigBlendSpeed;
 
     [Header("IK Targets")]
     [SerializeField] TwoBoneIKConstraint rightHandIK;
@@ -19,8 +15,13 @@ public class WeaponRigController : MonoBehaviour
     [SerializeField] Transform leftHandIKTarget;
 
     float _currentAimWeight;
-    float _currentBaseWeight;
-    bool _currentAiming;
+
+    MultiAimConstraint _multiAimContraint;
+
+    void Awake()
+    {
+        _multiAimContraint ??= basePoseRig.GetComponentInChildren<MultiAimConstraint>();
+    }
 
     void Start()
     {
@@ -29,7 +30,7 @@ public class WeaponRigController : MonoBehaviour
 
     void Update()
     {
-        if (!WeaponManager.instance.hasActiveWeapon && _currentAiming)
+        if (!WeaponManager.instance.hasActiveWeapon && WeaponManager.instance.isAiming)
             return;
 
         UpdateRigWeights();
@@ -52,22 +53,9 @@ public class WeaponRigController : MonoBehaviour
 
     public void UpdateRigWeights()
     {
-        bool isAiming = InputHandler.Instance.GetAttackInput();
+        _currentAimWeight = WeaponManager.instance.isAiming ? 1f : 0f;
 
-        if (isAiming != _currentAiming)
-        {
-            // update the aim state
-            _currentAiming = isAiming;
-        }
-
-        _currentBaseWeight = Mathf.Lerp(
-            _currentBaseWeight, _currentAiming ? 0f : 1f, Time.deltaTime * rigBlendSpeed);
-
-        _currentAimWeight = Mathf.Lerp(
-            _currentAimWeight, _currentAiming ? 1f : 0f, Time.deltaTime * rigBlendSpeed);
-
-        basePoseRig.weight = _currentBaseWeight;
-        aimPoseRig.weight = _currentAimWeight;
+        _multiAimContraint.weight = _currentAimWeight;
         upperbodyRig.weight = _currentAimWeight;
     }
 

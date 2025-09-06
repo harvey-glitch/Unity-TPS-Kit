@@ -2,20 +2,31 @@ using UnityEngine;
 
 public class Weapon : MonoBehaviour
 {
-    public enum WeaponType { primary, secondary }
-    [Header("TYpe")]
-    [SerializeField] WeaponType weaponType;
+    public enum WeaponCategory { primary, secondary }
+    [Header("Type")]
+    [SerializeField] WeaponCategory category;
+
+    public enum FireMode
+    {
+        single, auto, burst 
+    }
+    [Header("Firing Mode")]
+    [SerializeField] FireMode fireMode;
 
     [Header("Rigs")]
     [SerializeField] Transform rightHandGrip;
     [SerializeField] Transform leftHandGrip;
 
-    [Header("Properties")]
+    [Header("Data")]
     [SerializeField] float firerate = 0.2f;
     [SerializeField] float maxRange = 50.0f;
     [SerializeField] int damage = 10;
-    [SerializeField] GameObject impactEffect;
+    [SerializeField] Vector3 recoil;
+    [SerializeField] float recoilSpeed = 15f;
     [SerializeField] Transform muzzle;
+
+    [Header("Particles")]
+    [SerializeField] GameObject impactEffect;
     [SerializeField] ParticleSystem muzzleFlash;
 
     [Header("Base Position")]
@@ -27,14 +38,17 @@ public class Weapon : MonoBehaviour
     public Vector3 aimRotationOffset;
 
     // Public read-only properties
+    public WeaponCategory Category => category;
+    public FireMode Mode => fireMode;
     public Transform RightHandGrip => rightHandGrip;
     public Transform LeftHandGrip => leftHandGrip;
     public float Firerate => firerate;
     public float MaxRange => maxRange;
+    public float RecoilSpeed => recoilSpeed;
+    public Vector3 Recoil => recoil;
     public int Damage => damage;
     public GameObject ImpactEffect => impactEffect;
     public Transform Muzzle => muzzle;
-    public WeaponType Type => weaponType;
 
     public void PlayMuzzleFlash()
     {
@@ -47,5 +61,13 @@ public class Weapon : MonoBehaviour
         {
             health.OnDamageTaken(damage);
         }
+    }
+
+    public Vector3 GetSpreadDirection(Vector3 forward, float spreadAngle)
+    {
+        float randomX = Random.Range(-spreadAngle, spreadAngle);
+        float randomY = Random.Range(-spreadAngle, spreadAngle);
+
+        return Quaternion.Euler(randomX, randomY, 0) * forward;
     }
 }

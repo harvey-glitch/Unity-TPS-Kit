@@ -1,16 +1,16 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using Unity.Cinemachine;
-
 public class WeaponManager : MonoBehaviour
 {
     // instance
     public static WeaponManager instance { get; private set; }
 
-    [Header("Weapon")]
-    [SerializeField] Weapon activeWeapon;
+    [Header("Weapon Transfrom Setup")]
     [SerializeField] Transform weaponHolder;
     [SerializeField] Transform weaponPivot;
+    [SerializeField] Transform weaponRecoil;
 
     [Header("Bullet Tracer")]
     [SerializeField] bool addBulletTracer;
@@ -28,9 +28,21 @@ public class WeaponManager : MonoBehaviour
     WeaponRigController _rigController;
 
     // tracks the next time the weapon can be fire
+    Dictionary<Weapon.WeaponCategory, Weapon> equippedWeapons = new();
+
+    Weapon activeWeapon;
+
     float _nextFireTime;
     bool _currentlyAiming;
+    Vector3 weaponPivotPos;
+    Quaternion weaponPivotRot;
 
+    Vector3 targetRecoilPos;
+    Vector3 targetRecoilRot;
+    Vector3 currentRecoilPos;
+    Vector3 currentRecoilRot;
+
+    public bool isAiming => _currentlyAiming;
     void Awake()
     {
         #region singleton
@@ -50,63 +62,98 @@ public class WeaponManager : MonoBehaviour
         _camera = Camera.main;
     }
 
+    private void Start()
+    {
+        weaponPivotPos = weaponRecoil.transform.localPosition;
+        weaponPivotRot = weaponRecoil.transform.localRotation;
+    }
+
     void Update()
     {
-        HandlePoseBlending();
+        CheckIfAiming();
 
         // safe check if theres an active weapon first
-        if (!hasActiveWeapon && InputHandler.Instance.GetAttackInput())
-        {
-            Debug.LogWarning("No active weapon found!");
+        if (!hasActiveWeapon)
             return;
-        }
-        
-        // ray base shooting logic
+
+        PoseBlending();
+        SmoothRecoil();
         HitScanShoot();
     }
 
     public void HitScanShoot()
     {
-        if (InputHandler.Instance.GetAttackInput() && Time.time >= _nextFireTime)
+        switch (activeWeapon.Mode)
         {
-            // cast a ray from the center of camera 
-            Ray ray = _camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-            Vector3 rayPoint = Vector3.zero;
+            case Weapon.FireMode.auto:
+                if (InputHandler.Instance.GetAttackInput() && Time.time >= _nextFireTime)
+                {
+                    Vector3 forwardDirection = _camera.transform.forward;
+                    HitScan(forwardDirection);
+                }
+                break;
 
-            impulseSource.GenerateImpulse(ray.direction);
-
-            // store the point where the ray hit
-            if (Physics.Raycast(ray, out RaycastHit hit, activeWeapon.MaxRange))
-            {
-                rayPoint = hit.point;
-
-                HealthBase health = hit.transform.GetComponent<HealthBase>();
-                if (health != null)
-                    health.OnDamageTaken(activeWeapon.Damage);
-            }
-            else
-            {
-                rayPoint = ray.GetPoint(activeWeapon.MaxRange);
-            }
-
-            if (addBulletTracer)
-            {
-                // create a direction from weapon barrel to hit point
-                Vector3 direction = (rayPoint - activeWeapon.Muzzle.position).normalized;
-
-                // spawn trail
-                TrailRenderer trail = Instantiate(
-                    trailPrefab, activeWeapon.Muzzle.position, Quaternion.LookRotation(direction));
-
-                // move the trail towards hit point
-                StartCoroutine(SpawnTrail(trail, rayPoint, hit));
-                activeWeapon.PlayMuzzleFlash(); // play muzzle flash
-            }
-
-            _nextFireTime = Time.time + (1f / activeWeapon.Firerate);
+            case Weapon.FireMode.burst:
+                if (InputHandler.Instance.GetAttackInput() && Time.time >= _nextFireTime)
+                {
+                    for (int i = 0; i < 5; i++)
+                    {
+                        Vector3 randomDirection = activeWeapon.GetSpreadDirection(_camera.transform.forward, 5f);
+                        HitScan(randomDirection);
+                    }
+                }
+                break;
         }
     }
 
+    void HitScan(Vector3 direction)
+    {
+        // Create the ray from the camera position instead of center screen
+        Ray ray = new Ray(_camera.transform.position, direction);
+        Vector3 rayHitPoint = Vector3.zero;
+
+        // store the point where the ray hit
+        if (Physics.Raycast(ray, out RaycastHit hit, activeWeapon.MaxRange))
+        {
+            rayHitPoint = hit.point;
+
+            if (hit.transform.TryGetComponent(out HealthBase health))
+            {
+                health.OnDamageTaken(activeWeapon.Damage);
+                Rigidbody rb = hit.transform.GetComponent<Rigidbody>();
+                if (rb == null)
+                    return;
+
+                rb.AddForceAtPosition(ray.direction.normalized * 2f, hit.point, ForceMode.Impulse);
+            }
+        }
+        else
+        {
+            rayHitPoint = ray.GetPoint(activeWeapon.MaxRange);
+        }
+
+        if (addBulletTracer)
+        {
+            // create a direction from weapon barrel to hit point
+            //Vector3 direction = (rayPoint - activeWeapon.Muzzle.position).normalized;
+
+            // spawn trail
+            TrailRenderer trail = Instantiate(
+                trailPrefab, activeWeapon.Muzzle.position, Quaternion.LookRotation(direction));
+
+            // move the trail towards hit point
+            StartCoroutine(SpawnTrail(trail, rayHitPoint, hit));
+            activeWeapon.PlayMuzzleFlash(); // play muzzle flash
+        }
+
+        // add recoil
+        impulseSource.GenerateImpulse(ray.direction);
+        targetRecoilPos += Vector3.back * activeWeapon.Recoil.z;
+        targetRecoilRot += new Vector3(activeWeapon.Recoil.y, 0f, 0f);
+
+        // add firerate
+        _nextFireTime = Time.time + (1f / activeWeapon.Firerate);
+    }
 
     IEnumerator SpawnTrail(TrailRenderer trail, Vector3 endPosition, RaycastHit rayHit)
     {
@@ -143,70 +190,89 @@ public class WeaponManager : MonoBehaviour
 
     public void EquipWeapon(Weapon newWeapon)
     {
-        if (activeWeapon != null)
+        if (newWeapon == null) return;
+
+        var category = newWeapon.Category;
+
+        // if we pick the same weapon category, remove the previous and equipped the new one
+        if (equippedWeapons.ContainsKey(category) && equippedWeapons[category] != null)
+        {
+            Destroy(equippedWeapons[category].gameObject);
+            //Destroy(equippedWeapons[category].gameObject);
+            Debug.Log("duplicate exist");
+        }
+
+        // Disable currently active weapon (different category case)
+        if (activeWeapon != null && activeWeapon != newWeapon)
         {
             activeWeapon.gameObject.SetActive(false);
         }
 
-        if (newWeapon != null)
-        {
-            activeWeapon = newWeapon;
-            activeWeapon.transform.SetParent(weaponPivot.transform, false);
-            activeWeapon.transform.localPosition = Vector3.zero;
-            activeWeapon.transform.localRotation = Quaternion.identity;
+        equippedWeapons[category] = newWeapon; // update the dictionary to store the new weapon accodingly
+        activeWeapon = newWeapon; // update the new active weapon to match what is picked
 
-            // offset the weapon pivot for appropriate positioning
-            Vector3 basePosition = activeWeapon.positionOffset;
-            Vector3 baseRrotation = activeWeapon.rotationOffset;
-            UpdateWeaponOrientation(basePosition, baseRrotation);
+        // make sure the weapon is parented and placed on the right transform
+        activeWeapon.transform.SetParent(weaponRecoil.transform, false);
+        activeWeapon.transform.localPosition = Vector3.zero;
+        activeWeapon.transform.localRotation = Quaternion.identity;
 
-            // move the IK targets to weapon grips
-            _rigController.UpdateRigIKTarget(activeWeapon.RightHandGrip, activeWeapon.LeftHandGrip);
+        // offset the weapon pivot for positioning
+        Vector3 basePosition = activeWeapon.positionOffset;
+        Vector3 baseRotation = activeWeapon.rotationOffset;
+        UpdateWeaponOrientation(basePosition, baseRotation);
 
-            _rigController.SetHandRigWeight(1);
-        }
-    }
+        // move the IK targets to weapon grips, making player hands hold the weapon
+        _rigController.UpdateRigIKTarget(activeWeapon.RightHandGrip, activeWeapon.LeftHandGrip);
 
-    void EquippedChildWeapon()
-    {
-        // loop though all weapon holder child and equipped if one weapon found by default
-        for (int i = 0; i < weaponPivot.childCount; i++)
-        {
-            Transform child = weaponPivot.GetChild(i);
-            Weapon weapon = child.GetComponent<Weapon>();
+        _rigController.SetHandRigWeight(1);
 
-            if (weapon != null)
-            {
-                EquipWeapon(weapon);
-                break; // stop if you only want one equipped
-            }
-        }
+        activeWeapon.gameObject.SetActive(true);
+        Debug.Log(activeWeapon.name);
     }
 
     void UpdateWeaponOrientation(Vector3 position, Vector3 rotation)
     {
-        if (weaponPivot != null)
-        {
-            weaponPivot.transform.localPosition = position;
-            weaponPivot.transform.localRotation = Quaternion.Euler(rotation);
-        }
+        weaponPivot.transform.localPosition = position;
+        weaponPivot.transform.localRotation = Quaternion.Euler(rotation);
     }
 
-    void HandlePoseBlending()
+    void PoseBlending()
+    {
+        Vector3 targetPos = isAiming ? activeWeapon.aimPositionOffset : activeWeapon.positionOffset;
+
+        Vector3 targetRot = isAiming ? activeWeapon.aimRotationOffset : activeWeapon.rotationOffset;
+
+        UpdateWeaponOrientation(targetPos, targetRot);
+    }
+
+    void SmoothRecoil()
+    {
+        float speedFactor = 1f * activeWeapon.RecoilSpeed;
+        targetRecoilPos = Vector3.Lerp(
+            targetRecoilPos, Vector3.zero, Time.deltaTime * speedFactor);
+
+        currentRecoilPos = Vector3.Lerp(
+            currentRecoilPos, targetRecoilPos, Time.deltaTime * speedFactor);
+
+        targetRecoilRot = Vector3.Lerp(
+            targetRecoilRot, Vector3.zero, Time.deltaTime * speedFactor);
+
+        currentRecoilRot = Vector3.Lerp(
+            currentRecoilRot, targetRecoilRot, Time.deltaTime * speedFactor);
+
+        weaponRecoil.transform.localPosition = weaponPivotPos + currentRecoilPos;
+        weaponRecoil.transform.localRotation = weaponPivotRot * Quaternion.Euler(currentRecoilRot);
+    }
+
+    public bool CheckIfAiming()
     {
         bool isAiming = InputHandler.Instance.GetAttackInput() && activeWeapon != null;
 
         if (isAiming != _currentlyAiming)
         {
             _currentlyAiming = isAiming;
-
-            Vector3 position = _currentlyAiming ?
-                       activeWeapon.aimPositionOffset : activeWeapon.positionOffset;
-
-            Vector3 rotation = _currentlyAiming ?
-                activeWeapon.aimRotationOffset : activeWeapon.rotationOffset;
-
-            UpdateWeaponOrientation(position, rotation);
         }
+
+        return _currentlyAiming;
     }
 }

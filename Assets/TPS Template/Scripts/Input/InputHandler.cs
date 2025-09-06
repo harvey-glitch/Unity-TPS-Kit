@@ -29,4 +29,9 @@ public class InputHandler : MonoBehaviour
     {
         return _input.actions["Attack"].IsPressed();
     }
+
+    public bool GetInteractInput()
+    {
+        return _input.actions["Interact"].IsPressed();
+    }
 }

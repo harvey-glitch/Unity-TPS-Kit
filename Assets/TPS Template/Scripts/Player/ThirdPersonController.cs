@@ -1,7 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController), (typeof(Animator)))]
-public class ThirdPersonControl : MonoBehaviour
+public class ThirdPersonController : MonoBehaviour
 {
     [Header("Settings")]
     [SerializeField] float moveSpeed = 5f;
